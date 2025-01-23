@@ -1,109 +1,209 @@
-# This is the SAM template that represents the architecture of your serverless application
-# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-template-basics.html
-
-# The AWSTemplateFormatVersion identifies the capabilities of the template
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/format-version-structure.html
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  api-auth-customers
+  api-auth-login
 
-# Transform section specifies one or more macros that AWS CloudFormation uses to process your template
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/transform-section-structure.html
 Transform:
 - AWS::Serverless-2016-10-31
 
-# Resources declares the AWS resources that you want to include in the stack
-# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
+Parameters:
+  Module:
+    Type: String
+    Default: api-auth-login
+  Project:
+    Type: String
+    Default: apr
+  Env:
+    Type: String
+    Default: dev
+  Version:
+    Type: String
+    Default: v1
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 1024
+    Architectures:
+      - x86_64
+
 Resources:
-  # Each Lambda function is defined by properties:
-  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  # Create an API Gateway and add an API Key
+  ApiGatewayEndpoint:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      StageName: !Ref Env
+      Auth:
+        # Require API Key for all endpoints
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          UsagePlanName: GatewayAuthorization
 
-  # This is a Lambda function config associated with the source code: get-all-items.js
-  getAllItemsFunction:
+  JWTUserTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: JWTUserTokenSecret
+      Description: "This secret has a dynamically generated secret password."
+      # Generate a random string 30 charatcers long for the JWT secret
+      GenerateSecretString:
+        GenerateStringKey: 'jwt_secret'
+        PasswordLength: 30
+        ExcludeCharacters: '"@/\:;+*'''
+        SecretStringTemplate: '{"secret_name": "sam-node-app-jwt-secret"}'
+
+  # Lambda function for api health checks
+  HealthCheck:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/get-all-items.getAllItemsHandler
-      Runtime: nodejs20.x
-      Architectures:
-        - x86_64
-      MemorySize: 128
-      Timeout: 100
-      Description: A simple example includes a HTTP get method to get all items from a DynamoDB table.
-      Policies:
-        # Give Create/Read/Update/Delete Permissions to the SampleTable
-        - DynamoDBCrudPolicy:
-            TableName: !Ref SampleTable
-      Environment:
-        Variables:
-          # Make table name accessible as environment variable from function code during execution
-          SAMPLE_TABLE: !Ref SampleTable
+      FunctionName: !Sub healthCheck-${Env}-${Module}
+      Description: GET method to get the health status of the api.
+      Handler: src/handlers/health-check.healthCheckHandler
       Events:
-        Api:
+        HealthCheck:
           Type: Api
           Properties:
-            Path: /
+            RestApiId: !Ref ApiGatewayEndpoint
+            Path: /health
             Method: GET
-  # Each Lambda function is defined by properties:
-  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+            Auth:
+              ApiKeyRequired: false
 
-  # This is a Lambda function config associated with the source code: get-by-id.js
-  getByIdFunction:
+
+  # This is a Lambda function config associated with the source code: get-all-events.js for getting all the Events.
+  getAllEventsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/get-by-id.getByIdHandler
-      Runtime: nodejs20.x
-      Architectures:
-        - x86_64
-      MemorySize: 128
-      Timeout: 100
-      Description: A simple example includes a HTTP get method to get one item by id from a DynamoDB table.
+      FunctionName: !Sub getAllEventsFunction-${Env}-${Module}
+      Handler: src/handlers/get-all-events.getAllEventsHandler
+      Description: Includes a HTTP get method to get all events from a DynamoDB table.
       Policies:
-        # Give Create/Read/Update/Delete Permissions to the SampleTable
+        # Give Create/Read/Update/Delete Permissions to the EventsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref SampleTable
+            TableName: !Ref EventsTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref JWTUserTokenSecret
       Environment:
         Variables:
           # Make table name accessible as environment variable from function code during execution
-          SAMPLE_TABLE: !Ref SampleTable
+          SAMPLE_TABLE: !Ref EventsTable
       Events:
         Api:
           Type: Api
           Properties:
-            Path: /{id}
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /api/events
             Method: GET
-  # Each Lambda function is defined by properties:
-  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
 
-  # This is a Lambda function config associated with the source code: put-item.js
-  putItemFunction:
+  # This is a Lambda function config associated with the source code: get-event.js for getting a single Event by its ID
+  getEventByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: src/handlers/put-item.putItemHandler
-      Runtime: nodejs20.x
-      Architectures:
-        - x86_64
-      MemorySize: 128
-      Timeout: 100
-      Description: A simple example includes a HTTP post method to add one item to a DynamoDB table.
+      FunctionName: !Sub getEventByIdFunction-${Env}-${Module}
+      Handler: src/handlers/get-event.getEventByIdHandler
+      Description: Includes a HTTP get method to get one event by id from a DynamoDB table.
       Policies:
-        # Give Create/Read/Update/Delete Permissions to the SampleTable
+        # Give Create/Read/Update/Delete Permissions to the EventsTable
         - DynamoDBCrudPolicy:
-            TableName: !Ref SampleTable
+            TableName: !Ref EventsTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref JWTUserTokenSecret
       Environment:
         Variables:
           # Make table name accessible as environment variable from function code during execution
-          SAMPLE_TABLE: !Ref SampleTable
+          SAMPLE_TABLE: !Ref EventsTable
       Events:
         Api:
           Type: Api
           Properties:
-            Path: /
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /api/event/{id}
+            Method: GET
+
+  # This is a Lambda function config associated with the source code: put-item.js for posting an Event into the database
+  addEventFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub addEventFunction-${Env}-${Module}
+      Handler: src/handlers/add-event.addEventHandler
+      Description: Includes a HTTP post method to add one event to a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the EventsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EventsTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref JWTUserTokenSecret
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          SAMPLE_TABLE: !Ref EventsTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /api/event
             Method: POST
-  # Simple syntax to create a DynamoDB table with a single attribute primary key, more in
-  # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlesssimpletable
 
-  # DynamoDB table to store item: {id: &lt;ID&gt;, name: &lt;NAME&gt;}
-  SampleTable:
+  # This is a Lambda function config associated with the source code: user-register.js for adding a new user record into the database
+  registerUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub registerUserFunction-${Env}-${Module}
+      Handler: src/handlers/user-register.registerUserHandler
+      Description: A HTTP post method to register a user and add record to a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          USER_TABLE: !Ref UsersTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /register
+            Method: POST
+            Auth:
+              ApiKeyRequired: false
+
+  # This is a Lambda function config associated with the source code: user-login.js for fetching a user record from the database
+  loginUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub loginUserFunction-${Env}-${Module}
+      Handler: src/handlers/user-login.loginUserHandler
+      Description: A HTTP post method to login a user and fetch record from a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref JWTUserTokenSecret
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          USER_TABLE: !Ref UsersTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+            Path: /login
+            Method: POST
+            Auth:
+              ApiKeyRequired: true
+
+  # DynamoDB table to store Event details
+  EventsTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       PrimaryKey:
@@ -113,7 +213,22 @@ Resources:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
 
+  # DynamoDB table to store User details
+  UsersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: username
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
 Outputs:
-  WebEndpoint:
-    Description: "API Gateway endpoint URL for Prod stage"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  ApiGateway:
+    Description: "The URL is:"
+    Value: !Sub "https://${ApiGatewayEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${Env}/${Version}/"
+  ApiKey:
+    Description: "You can find your API Key in the AWS console: (Put in the request HEADER as 'x-api-key')"
+    Value: !Sub "https://console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${ApiGatewayEndpointApiKey}"
+

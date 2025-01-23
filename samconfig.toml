@@ -4,7 +4,7 @@ version = 0.1
 
 [default]
 [default.global.parameters]
-stack_name = "api-auth-customers"
+stack_name = "api-auth-login"
 
 [default.build.parameters]
 cached = true
@@ -17,6 +17,10 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
+s3_prefix = "api-auth-login"
+region = "us-east-1"
+parameter_overrides = "Module=\"api-auth-login\" Project=\"apr\" Env=\"dev\" Version=\"v1\""
+image_repositories = []
 
 [default.package.parameters]
 resolve_s3 = true
