@@ -12,6 +12,8 @@ const clientsecret = new SecretsManagerClient();
 // Get the DynamoDB table name from environment variables
 const tableName = process.env.USER_TABLE;
 
+const { compare } = bcrypt;
+
 /**
  * A HTTP post method for user login.
  */
@@ -45,8 +47,9 @@ export const loginUserHandler = async (event) => {
     try {
         const data = await ddbDocClient.send(new GetCommand(params));
         var item = data.Item;
+        const passwordsMatch = await compare(password, item.password)
         // Comprate a hash of the received password from the request body with the password hash from the database, if they match login the user and generate a JWT token
-        if (bcrypt.compareSync(password, item.password)) {
+        if (passwordsMatch) {
             // create JWT token
             const jwttoken = jwt.sign(
                 {

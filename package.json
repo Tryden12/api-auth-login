@@ -5,7 +5,9 @@
     "private": true,
     "dependencies": {
         "@aws-sdk/client-dynamodb": "^3.398.0",
-        "@aws-sdk/lib-dynamodb": "^3.398.0"
+        "@aws-sdk/lib-dynamodb": "^3.398.0",
+        "@types/bcryptjs": "^2.4.6",
+        "bcryptjs": "^2.4.3"
     },
     "devDependencies": {
         "aws-sdk-client-mock": "^2.0.0",

@@ -12,6 +12,8 @@ const ddbDocClient = DynamoDBDocumentClient.from(client);
 // Get the DynamoDB table name from environment variables
 const tableName = process.env.USER_TABLE;
 
+const { hash } = bcrypt;
+
 /**
  * A HTTP post method to add one user to a DynamoDB table.
  */
@@ -30,12 +32,24 @@ export const registerUserHandler = async (event) => {
     const username = body.username;
     
     // Generate a hashed password string
-    const password = bcrypt.hashSync(body.password, 8);
+    const encryptedPW = await hash(body.password.trim(), 8);
+
+    const user = {
+        uuid: id,
+        username: body.username,
+        password: encryptedPW,
+        email: body.email
+    };
 
     // Creates a new user, or replaces an old user record with a new one
     var params = {
         TableName: tableName,
-        Item: { id: id, username: username, password: password }
+        Item: { 
+            uuid: user.id,
+            username: user.username,
+            password: user.encryptedPW,
+            email: user.email
+        }
     };
 
     try {
