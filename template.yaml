@@ -206,28 +206,46 @@ Resources:
   EventsTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
+      TableName: !Sub events-table-${Module}-${Env}
       PrimaryKey:
         Name: id
         Type: String
-      ProvisionedThroughput:
-        ReadCapacityUnits: 2
-        WriteCapacityUnits: 2
+
 
   # DynamoDB table to store User details
   UsersTable:
-    Type: AWS::Serverless::SimpleTable
+    Type: AWS::DynamoDB::Table
     Properties:
-      PrimaryKey:
-        Name: username
-        Type: String
-      ProvisionedThroughput:
-        ReadCapacityUnits: 2
-        WriteCapacityUnits: 2
+      TableName: !Sub user-table-${Module}-${Env}
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+        - AttributeName: uuid
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: "uuidIndex"
+          KeySchema:
+            - AttributeName: uuid
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: "emailIndex"
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
 
 Outputs:
   ApiGateway:
     Description: "The URL is:"
-    Value: !Sub "https://${ApiGatewayEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${Env}/${Version}/"
+    Value: !Sub "https://${ApiGatewayEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${Env}/"
   ApiKey:
     Description: "You can find your API Key in the AWS console: (Put in the request HEADER as 'x-api-key')"
     Value: !Sub "https://console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${ApiGatewayEndpointApiKey}"
