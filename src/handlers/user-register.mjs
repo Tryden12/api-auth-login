@@ -1,7 +1,6 @@
 // Import bcrypt for encrypting user password
 import bcrypt from 'bcryptjs';
-// Import uuid for generating unique user ID
-import { v4 as uuidv4 } from 'uuid';
+import { generateNumericGuid } from '../utils/guid-generator.mjs';
 
 // Create a DocumentClient that represents the query to add an item
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
@@ -26,8 +25,9 @@ export const registerUserHandler = async (event) => {
 
     // Get username and password from the body of the request
     const body = JSON.parse(event.body);
-    // Use a random uuidv4 string as a User ID 
-    const id = uuidv4();
+
+    // Generate a GUID 
+    const guid = generateNumericGuid();
 
     const username = body.username;
     
@@ -35,7 +35,7 @@ export const registerUserHandler = async (event) => {
     const encryptedPW = await hash(body.password.trim(), 8);
 
     const user = {
-        uuid: id,
+        id: guid,
         username: body.username,
         password: encryptedPW,
         email: body.email
@@ -47,7 +47,7 @@ export const registerUserHandler = async (event) => {
         Item: { 
             uuid: user.id,
             username: user.username,
-            password: user.encryptedPW,
+            password: user.password,
             email: user.email
         }
     };
