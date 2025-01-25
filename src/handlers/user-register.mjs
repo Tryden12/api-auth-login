@@ -95,7 +95,8 @@ async function saveUser(user) {
             uuid: user.id,
             username: user.username,
             password: user.password,
-            email: user.email
+            email: user.email,
+            fullName: user.fullName
         }
     };
     try {
