@@ -220,26 +220,23 @@ Resources:
       AttributeDefinitions:
         - AttributeName: username
           AttributeType: S
-        - AttributeName: uuid
-          AttributeType: S
-        - AttributeName: email
-          AttributeType: S
       KeySchema:
         - AttributeName: username
           KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: "uuidIndex"
-          KeySchema:
-            - AttributeName: uuid
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-        - IndexName: "emailIndex"
-          KeySchema:
-            - AttributeName: email
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
+      # GSI is more expensive, commenting out until needed
+      # GlobalSecondaryIndexes:
+      #   - IndexName: "uuidIndex"
+      #     KeySchema:
+      #       - AttributeName: uuid
+      #         KeyType: HASH
+      #     Projection:
+      #       ProjectionType: ALL
+      #   - IndexName: "emailIndex"
+      #     KeySchema:
+      #       - AttributeName: email
+      #         KeyType: HASH
+      #     Projection:
+      #       ProjectionType: ALL
       BillingMode: PAY_PER_REQUEST
 
 Outputs:
