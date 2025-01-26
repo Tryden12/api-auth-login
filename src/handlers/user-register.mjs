@@ -1,4 +1,4 @@
-import { getUser, saveUser } from '../service/user/user-service.mjs'
+import { getUser, checkUsernameExists, saveUser } from '../service/user/user-service.mjs'
 import { generateNumericGuid } from '../utils/guid-generator.mjs';
 import { buildResponse } from '../utils/util.mjs';
 import bcrypt from 'bcryptjs';
@@ -31,7 +31,7 @@ export const registerUserHandler = async (event) => {
     }
 
     // Check if username already exists
-    const usernameExists = await getUser(username);
+    const usernameExists = await checkUsernameExists(username)
     if(usernameExists) {
         return buildResponse(401, {
             message: 'Something is not working. Please try a different username.'

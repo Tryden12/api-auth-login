@@ -11,14 +11,26 @@ const tableName = process.env.USER_TABLE;
 export async function getUser(username) {
     const params = {
         TableName: tableName,
-        Key: { "username": {"S": username} }
-    }
+        Key: {
+            "username": { S: username } // Using the key format DynamoDB expects
+        }
+    };
+
     try {
-        const data = await ddbDocClient.send( new GetItemCommand(params))
-        console.log(JSON.stringify(data));
-        return data.Item.username.S ? true : false;
+        // Create and send the GetItemCommand
+        const command = new GetItemCommand(params);
+        const response = await ddbDocClient.send(command);
+
+        if (response.Item) {
+            console.log("Item retrieved:", response.Item);
+            return response.Item
+        } else {
+            console.log("User not found");
+            return null;
+        }
     } catch (error) {
-        console.error('There is an error getting user: ', error);
+        console.error('There is an error getting user:', error);
+        throw error;  // Optionally rethrow the error to handle it further up the stack
     }
 }
 
@@ -41,5 +53,32 @@ export async function saveUser(user) {
         console.error("Error saving user: ", error);
     }
 
+}
+
+export async function checkUsernameExists(username) {
+    const params = {
+        TableName: tableName,
+        Key: {
+            "username": { S: username } // Using the key format DynamoDB expects
+        }
+    };
+
+    try {
+        // Create and send the GetItemCommand
+        const command = new GetItemCommand(params);
+        const response = await ddbDocClient.send(command);
+
+        if (response.Item) {
+            const username = response.Item.username.S
+            console.log(`Username ${username} already exists`);
+            return true;
+        } else {
+            console.log("Username not found");
+            return false;
+        }
+    } catch (error) {
+        console.error('There is an error getting user:', error);
+        throw error;  // Optionally rethrow the error to handle it further up the stack
+    }
 }
 

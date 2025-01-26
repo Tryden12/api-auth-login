@@ -1,13 +1,7 @@
-// Import bcrypt for encrypting user password and comparing the password hash
+import { buildResponse } from '../utils/util.mjs'
+import { generateToken } from '../service/auth/token.mjs';
+import { getUser } from '../service/user/user-service.mjs';
 import bcrypt from 'bcryptjs';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-// Import jwt for generating the user token
-import jwt from 'jsonwebtoken';
-const client = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocumentClient.from(client);
-const clientsecret = new SecretsManagerClient();
 
 // Get the DynamoDB table name from environment variables
 const tableName = process.env.USER_TABLE;
@@ -15,7 +9,7 @@ const tableName = process.env.USER_TABLE;
 const { compare } = bcrypt;
 
 /**
- * A HTTP post method for user login.
+ * HTTP post method for user login.
  */
 export const loginUserHandler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -29,61 +23,42 @@ export const loginUserHandler = async (event) => {
     const username = body.username;
     const password = body.password;
 
-    // Fetch the JWT secret string from AWS Secrets Manager 
-    const secret_value = await clientsecret.send(new GetSecretValueCommand({
-        SecretId: "JWTUserTokenSecret",
-    }));
-    const jwt_secret = JSON.parse(secret_value.SecretString);
-
-    var params = {
-        TableName: tableName,
-        Key: { username: username },
-    };
-
-    var token = "";
-    var message = "";
-    var status_code = 200;
-
-    try {
-        const data = await ddbDocClient.send(new GetCommand(params));
-        var item = data.Item;
-        const passwordsMatch = await compare(password, item.password)
-        // Comprate a hash of the received password from the request body with the password hash from the database, if they match login the user and generate a JWT token
-        if (passwordsMatch) {
-            // create JWT token
-            const jwttoken = jwt.sign(
-                {
-                    userId: item.id,
-                    userName: body.username,
-                },
-                jwt_secret.jwt_secret,
-                { expiresIn: "1h" }
-            );
-            message = "Login successful.";
-            token = jwttoken;
-        } else {
-            status_code = 403;
-            message = "Wrong password. Try again";
-            token = "NOT OKAY";
-        }
-    } catch (err) {
-        console.log("Error", err);
+    // Check required fields
+    if(!event || !username || !password) {
+        return buildResponse(401, {
+            message: 'Username and password are required.'
+        })
     }
 
-    const responseData = {
-        message: message,
-        user: {
-            username: body.username,
-            token: token
-        }
+    // Validate username
+    const dynamoUser = await getUser(username.trim())
+    if (!dynamoUser) {
+        return buildResponse(403, { message: 'User does not exist'});
     }
 
+    // Await is needed since compare() is async
+    const passwordsMatch = await compare(password, dynamoUser.password.S);
+    
+    // Incorrect password throws 403 
+    if (!passwordsMatch) {
+        return buildResponse(403, { message: "password is incorrect!"});
+    }
+    
+    // Prepare userInfo for jwt
+    const userInfo = {
+        username: dynamoUser.username.S,
+        name: dynamoUser.fullName.S
+    }
+
+    // Successful login
+    // Generate token & build 200 response
+    const token = await generateToken(userInfo)
     const response = {
-        statusCode: status_code,
-        body: JSON.stringify(responseData)
-    };
-
-    // All log statements are written to CloudWatch
-    console.info(`response from: ${event.path} statusCode: ${response.statusCode} body: ${response.body}`);
-    return response;
+        username: dynamoUser.username.S,
+        passwordsMatch: passwordsMatch,
+        enteredPasssword: password,
+        dynamoPassword: dynamoUser.password.S,
+        token: token
+    }
+    return buildResponse(200, response);
 };
