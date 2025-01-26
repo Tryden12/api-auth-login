@@ -8,8 +8,8 @@ The application uses several AWS resources, including Lambda functions, an API G
 To build and deploy the application for the first time, run the following in your shell:
 
 ```bash
-$ git clone https://github.com/tryden12/api-auth-login.git
-$ cd api-auth-login
+$ git clone https://github.com/tryden12/auth-dynamodb-microservice.git
+$ cd auth-dynamodb-microservice
 $ sam build
 $ sam deploy --guided
 ```
@@ -29,7 +29,7 @@ The API Gateway endpoint API and the API Gateway key will be displayed in the ou
 To delete the application that you created, use the AWS CLI. Run the following:
 
 ```bash
-sam delete --stack-name api-auth-login
+sam delete --stack-name auth-dynamodb-microservice
 ```
 
 ## Writeup
