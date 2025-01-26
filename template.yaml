@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  api-auth-login
+  auth-dynamodb-microservice
 
 Transform:
 - AWS::Serverless-2016-10-31
@@ -8,10 +8,10 @@ Transform:
 Parameters:
   Module:
     Type: String
-    Default: api-auth-login
+    Default: auth-dynamodb-microservice
   Project:
     Type: String
-    Default: apr
+    Default: project-name
   Env:
     Type: String
     Default: dev
